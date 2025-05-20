@@ -174,7 +174,7 @@ try:
         "cmdty_vl_rs_um", "cmdty_var_mes_perc", "dt_etl"
     ]]
 
-    parquet_path = './refined/boi_gordo_corrigido.parquet'
+    parquet_path = './refined/boi_gordo_refined.parquet.parquet'
     df_refined.to_parquet(parquet_path, index=False)
     logging.info(f"Arquivo Parquet salvo com sucesso em: {parquet_path}")
 except Exception as e:
