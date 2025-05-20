@@ -5,32 +5,29 @@ import os
 import logging
 import gdown
 
-#0. Preparação do ambiente
-#Configuração do log 
+# 0. Preparação do ambiente
+# Configuração do log
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("etl_commodity.log"),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("etl_commodity.log"), logging.StreamHandler()],
 )
-#Verificando as pastas necessárias na estrutura 
-pastas = ['raw', 'refined']
+# Verificando as pastas necessárias na estrutura
+pastas = ["raw", "refined"]
 pasta_atual = os.getcwd()
 
 for nome_pasta in pastas:
     caminho = os.path.join(pasta_atual, nome_pasta)
     if not os.path.exists(caminho):
         os.makedirs(caminho)
-        logging.info(f'Pasta criada: {caminho}')
+        logging.info(f"Pasta criada: {caminho}")
     else:
-        logging.info(f'Pasta já existe: {caminho}')
+        logging.info(f"Pasta já existe: {caminho}")
 
-#fazendo o download dos arquivos
+# fazendo o download dos arquivos
 files = {
     "CEPEA-20250416134013.xlsx": "1Zr8WnX6GYHGKJmB6deuwUAgqlQiONvwd",
-    "boi_gordo_base.csv": "16bG6TvYIjacnD_pAZYF7cGkVwzObGcbR"
+    "boi_gordo_base.csv": "16bG6TvYIjacnD_pAZYF7cGkVwzObGcbR",
 }
 
 for nome_arquivo, file_id in files.items():
@@ -40,7 +37,7 @@ for nome_arquivo, file_id in files.items():
     gdown.download(url, output_path, quiet=False)
 
 
-#1. Configurando a função para obtenção do IPCA
+# 1. Configurando a função para obtenção do IPCA
 def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
     try:
         inicio_formatado = datetime.strptime(inicio, "%d/%m/%Y").strftime("%d/%m/%Y")
@@ -70,26 +67,38 @@ def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
         logging.error(f"Erro inesperado ao processar dados do IPCA: {e}")
         raise
 
-#2. Leitura e tratamento do arquivo .xlsx
+
+# 2. Leitura e tratamento do arquivo .xlsx
 try:
     logging.info("Lendo e tratando o arquivo CEPEA...")
-    df_cepea = pd.read_excel('./raw/CEPEA-20250416134013.xlsx', skiprows=3, usecols=[0, 1], names=["Data", "Valor"])
-    df_cepea = df_cepea.dropna(how='all').dropna(subset=["Data"])
-    df_cepea["Valor"] = df_cepea["Valor"].astype(str).str.replace(",", ".").astype(float)
+    df_cepea = pd.read_excel(
+        "./raw/CEPEA-20250416134013.xlsx",
+        skiprows=3,
+        usecols=[0, 1],
+        names=["Data", "Valor"],
+    )
+    df_cepea = df_cepea.dropna(how="all").dropna(subset=["Data"])
+    df_cepea["Valor"] = (
+        df_cepea["Valor"].astype(str).str.replace(",", ".").astype(float)
+    )
     df_cepea["Data"] = pd.to_datetime(df_cepea["Data"], format="%m/%Y")
     df_cepea = df_cepea.drop_duplicates(subset=["Data"])
     df_cepea.rename(columns={"Data": "dt_cmdty"}, inplace=True)
 
     # Preencher calendário mensal
-    calendario = pd.date_range(start=df_cepea["dt_cmdty"].min(), end=df_cepea["dt_cmdty"].max(), freq="MS")
-    df_cepea = pd.DataFrame({"dt_cmdty": calendario}).merge(df_cepea, on="dt_cmdty", how="left")
+    calendario = pd.date_range(
+        start=df_cepea["dt_cmdty"].min(), end=df_cepea["dt_cmdty"].max(), freq="MS"
+    )
+    df_cepea = pd.DataFrame({"dt_cmdty": calendario}).merge(
+        df_cepea, on="dt_cmdty", how="left"
+    )
     df_cepea["Valor"] = df_cepea["Valor"].ffill()
     logging.info("Tratamento do Excel concluído.")
 except Exception as e:
     logging.critical(f"Erro ao tratar o arquivo CEPEA: {e}")
     exit(1)
 
-#3. Obtendo o IPCA
+# 3. Obtendo o IPCA
 data_inicio = df_cepea["dt_cmdty"].min().strftime("%d/%m/%Y")
 data_fim = df_cepea["dt_cmdty"].max().strftime("%d/%m/%Y")
 
@@ -103,21 +112,25 @@ except Exception:
     logging.critical("Falha ao obter ou processar IPCA. ETL interrompido.")
     exit(1)
 
-#4. Corrigindo valores pelo IPCA
+# 4. Corrigindo valores pelo IPCA
 try:
-    ipca_marco = df_cepea[df_cepea["dt_cmdty"] == pd.Timestamp("2025-03-01")]["ipca_acumulado"].values[0]
-    df_cepea["cmdty_vl_rs_um"] = df_cepea["Valor"] * (1 + ((ipca_marco - df_cepea["ipca_acumulado"]) / 100))
+    ipca_marco = df_cepea[df_cepea["dt_cmdty"] == pd.Timestamp("2025-03-01")][
+        "ipca_acumulado"
+    ].values[0]
+    df_cepea["cmdty_vl_rs_um"] = df_cepea["Valor"] * (
+        1 + ((ipca_marco - df_cepea["ipca_acumulado"]) / 100)
+    )
     logging.info("Cálculo do valor real (corrigido pelo IPCA) concluído.")
 except Exception as e:
     logging.critical(f"Erro ao calcular valor corrigido pelo IPCA: {e}")
     exit(1)
 
-#5. Preparação do arquivo .csv 
-csv_path = './raw/boi_gordo_base.csv'
+# 5. Preparação do arquivo .csv
+csv_path = "./raw/boi_gordo_base.csv"
 
 try:
     if os.path.exists(csv_path):
-        df_base = pd.read_csv(csv_path, sep=',', decimal='.', encoding='utf-8')
+        df_base = pd.read_csv(csv_path, sep=",", decimal=".", encoding="utf-8")
         df_base["dt_cmdty"] = pd.to_datetime(df_base["dt_cmdty"])
         logging.info("Arquivo CSV existente carregado.")
     else:
@@ -127,41 +140,40 @@ except Exception as e:
     logging.error(f"Erro ao ler o CSV de base: {e}")
     exit(1)
 
-#Merge e cálculo da variação percentual
+# Merge e cálculo da variação percentual
 df_merge = pd.merge(
     df_cepea[["dt_cmdty", "cmdty_vl_rs_um"]],
     df_base,
     on="dt_cmdty",
     how="outer",
-    suffixes=('_novo', '_antigo')
+    suffixes=("_novo", "_antigo"),
 )
 
 df_merge["cmdty_var_mes_perc"] = (
-    (df_merge["cmdty_vl_rs_um_novo"] - df_merge["cmdty_vl_rs_um_antigo"]) / df_merge["cmdty_vl_rs_um_antigo"]
+    (df_merge["cmdty_vl_rs_um_novo"] - df_merge["cmdty_vl_rs_um_antigo"])
+    / df_merge["cmdty_vl_rs_um_antigo"]
 ).fillna(0)
 
-#Formatar variação percentual como string legível (ex: "3.21%")
-df_merge["cmdty_var_mes_perc"] = (
-    (df_merge["cmdty_var_mes_perc"] * 100).round(2).astype(str) + '%'
-)
-df_atualizado = df_merge[["dt_cmdty", "cmdty_vl_rs_um_novo", "cmdty_var_mes_perc"]].rename(
-    columns={"cmdty_vl_rs_um_novo": "cmdty_vl_rs_um"}
-)
+# Formatar variação percentual como string legível (ex: "3.21%")
+df_merge["cmdty_var_mes_perc"] = (df_merge["cmdty_var_mes_perc"] * 100).round(2).astype(
+    str
+) + "%"
+df_atualizado = df_merge[
+    ["dt_cmdty", "cmdty_vl_rs_um_novo", "cmdty_var_mes_perc"]
+].rename(columns={"cmdty_vl_rs_um_novo": "cmdty_vl_rs_um"})
 
-#upsert dos dados formatados no arquivo .csv
+# upsert dos dados formatados no arquivo .csv
 try:
-    df_atualizado.to_csv(csv_path, sep=',', index=False, decimal='.')
+    df_atualizado.to_csv(csv_path, sep=",", index=False, decimal=".")
     logging.info("Upsert no arquivo CSV realizado com sucesso.")
 except Exception as e:
     logging.error(f"Erro ao salvar o CSV atualizado: {e}")
     exit(1)
 
-#6. Output PARQUET
+# 6. Output PARQUET
 try:
     df_cepea = df_cepea.merge(
-        df_atualizado[["dt_cmdty", "cmdty_var_mes_perc"]],
-        on="dt_cmdty",
-        how="left"
+        df_atualizado[["dt_cmdty", "cmdty_var_mes_perc"]], on="dt_cmdty", how="left"
     )
 
     df_cepea["nome_cmdty"] = "Boi_Gordo"
@@ -169,12 +181,19 @@ try:
     df_cepea["cmdty_um"] = "15 Kg/carcaça"
     df_cepea["dt_etl"] = pd.to_datetime(datetime.today().date())
 
-    df_refined = df_cepea[[
-        "dt_cmdty", "nome_cmdty", "tipo_cmdty", "cmdty_um",
-        "cmdty_vl_rs_um", "cmdty_var_mes_perc", "dt_etl"
-    ]]
+    df_refined = df_cepea[
+        [
+            "dt_cmdty",
+            "nome_cmdty",
+            "tipo_cmdty",
+            "cmdty_um",
+            "cmdty_vl_rs_um",
+            "cmdty_var_mes_perc",
+            "dt_etl",
+        ]
+    ]
 
-    parquet_path = './refined/boi_gordo_refined.parquet.parquet'
+    parquet_path = "./refined/boi_gordo_refined.parquet.parquet"
     df_refined.to_parquet(parquet_path, index=False)
     logging.info(f"Arquivo Parquet salvo com sucesso em: {parquet_path}")
 except Exception as e:
