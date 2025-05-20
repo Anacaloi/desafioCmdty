@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 import logging
 
-# 0. CONFIGURAÇÃO DO LOG
+# 0. Configuração do log e verificação da estrutura de pastas
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -13,6 +13,18 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+# Definindo os nomes das pastas necessárias na estrutura e o caminho da pasta atual
+pastas = ['raw', 'refined']
+pasta_atual = os.getcwd()
+
+# Verificando e criando as pastas se não existirem
+for nome_pasta in pastas:
+    caminho = os.path.join(pasta_atual, nome_pasta)
+    if not os.path.exists(caminho):
+        os.makedirs(caminho)
+        logging.info(f'Pasta criada: {caminho}')
+    else:
+        logging.info(f'Pasta já existe: {caminho}')
 
 # 1. FUNÇÃO: OBTER IPCA
 def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
@@ -116,13 +128,13 @@ df_merge["cmdty_var_mes_perc"] = (
 
 # Formatar variação percentual como string legível (ex: "3.21%")
 df_merge["cmdty_var_mes_perc"] = (
-    (df_merge["cmdty_var_mes_perc"] * 100).round(6).astype(str) + '%'
+    (df_merge["cmdty_var_mes_perc"] * 100).round(2).astype(str) + '%'
 )
-
 df_atualizado = df_merge[["dt_cmdty", "cmdty_vl_rs_um_novo", "cmdty_var_mes_perc"]].rename(
     columns={"cmdty_vl_rs_um_novo": "cmdty_vl_rs_um"}
 )
 
+#upsert dos dados formatados no arquivo .csv
 try:
     df_atualizado.to_csv(csv_path, sep=';', index=False, decimal='.')
     logging.info("Upsert no arquivo CSV realizado com sucesso.")
