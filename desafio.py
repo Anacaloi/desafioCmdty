@@ -3,13 +3,14 @@ import requests
 from datetime import datetime
 import os
 import logging
+import gdown
 
 # 0. Configuração do log e verificação da estrutura de pastas
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("etl_boi_gordo.log"),
+        logging.FileHandler("etl_commodity.log"),
         logging.StreamHandler()
     ]
 )
@@ -25,6 +26,19 @@ for nome_pasta in pastas:
         logging.info(f'Pasta criada: {caminho}')
     else:
         logging.info(f'Pasta já existe: {caminho}')
+
+#fazendo o download dos arquivos
+files = {
+    "CEPEA-20250416134013.xlsx": "1Zr8WnX6GYHGKJmB6deuwUAgqlQiONvwd",
+    "boi_gordo_base.csv": "16bG6TvYIjacnD_pAZYF7cGkVwzObGcbR"
+}
+
+for nome_arquivo, file_id in files.items():
+    url = f"https://drive.google.com/uc?id={file_id}"
+    output_path = os.path.join("raw", nome_arquivo)
+    logging.info(f"Baixando {nome_arquivo}...")
+    gdown.download(url, output_path, quiet=False)
+
 
 # 1. FUNÇÃO: OBTER IPCA
 def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
@@ -103,7 +117,7 @@ csv_path = './raw/boi_gordo_base.csv'
 
 try:
     if os.path.exists(csv_path):
-        df_base = pd.read_csv(csv_path, sep=';', decimal='.', encoding='utf-8')
+        df_base = pd.read_csv(csv_path, sep=',', decimal='.', encoding='utf-8')
         df_base["dt_cmdty"] = pd.to_datetime(df_base["dt_cmdty"])
         logging.info("Arquivo CSV existente carregado.")
     else:
@@ -136,7 +150,7 @@ df_atualizado = df_merge[["dt_cmdty", "cmdty_vl_rs_um_novo", "cmdty_var_mes_perc
 
 #upsert dos dados formatados no arquivo .csv
 try:
-    df_atualizado.to_csv(csv_path, sep=';', index=False, decimal='.')
+    df_atualizado.to_csv(csv_path, sep=',', index=False, decimal='.')
     logging.info("Upsert no arquivo CSV realizado com sucesso.")
 except Exception as e:
     logging.error(f"Erro ao salvar o CSV atualizado: {e}")
@@ -166,5 +180,5 @@ try:
 except Exception as e:
     logging.error(f"Erro ao salvar o arquivo Parquet: {e}")
     exit(1)
-
+print (df_final_parquet)
 logging.info("Processo ETL concluído com sucesso.")
