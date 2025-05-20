@@ -5,7 +5,8 @@ import os
 import logging
 import gdown
 
-# 0. Configuração do log e verificação da estrutura de pastas
+#0. Preparação do ambiente
+#Configuração do log 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -14,11 +15,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-# Definindo os nomes das pastas necessárias na estrutura e o caminho da pasta atual
+#Verificando as pastas necessárias na estrutura 
 pastas = ['raw', 'refined']
 pasta_atual = os.getcwd()
 
-# Verificando e criando as pastas se não existirem
 for nome_pasta in pastas:
     caminho = os.path.join(pasta_atual, nome_pasta)
     if not os.path.exists(caminho):
@@ -40,7 +40,7 @@ for nome_arquivo, file_id in files.items():
     gdown.download(url, output_path, quiet=False)
 
 
-# 1. FUNÇÃO: OBTER IPCA
+#1. Configurando a função para obtenção do IPCA
 def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
     try:
         inicio_formatado = datetime.strptime(inicio, "%d/%m/%Y").strftime("%d/%m/%Y")
@@ -70,7 +70,7 @@ def obter_ipca(inicio: str, fim: str) -> pd.DataFrame:
         logging.error(f"Erro inesperado ao processar dados do IPCA: {e}")
         raise
 
-# 2. LEITURA E TRATAMENTO DO EXCEL
+#2. Leitura e tratamento do arquivo .xlsx
 try:
     logging.info("Lendo e tratando o arquivo CEPEA...")
     df_cepea = pd.read_excel('./raw/CEPEA-20250416134013.xlsx', skiprows=3, usecols=[0, 1], names=["Data", "Valor"])
@@ -89,21 +89,21 @@ except Exception as e:
     logging.critical(f"Erro ao tratar o arquivo CEPEA: {e}")
     exit(1)
 
-# 3. OBTENÇÃO DO IPCA
+#3. Obtendo o IPCA
 data_inicio = df_cepea["dt_cmdty"].min().strftime("%d/%m/%Y")
 data_fim = df_cepea["dt_cmdty"].max().strftime("%d/%m/%Y")
 
 try:
-    ipca_df = obter_ipca(data_inicio, data_fim)
-    ipca_df.rename(columns={"data": "dt_cmdty", "valor": "ipca"}, inplace=True)
-    df_cepea = df_cepea.merge(ipca_df, on="dt_cmdty", how="left")
+    df_ipca = obter_ipca(data_inicio, data_fim)
+    df_ipca.rename(columns={"data": "dt_cmdty", "valor": "ipca"}, inplace=True)
+    df_cepea = df_cepea.merge(df_ipca, on="dt_cmdty", how="left")
     df_cepea["ipca"] = df_cepea["ipca"].fillna(0)
     df_cepea["ipca_acumulado"] = df_cepea["ipca"].cumsum()
 except Exception:
     logging.critical("Falha ao obter ou processar IPCA. ETL interrompido.")
     exit(1)
 
-# 4. CORREÇÃO DO VALOR PELO IPCA
+#4. Corrigindo valores pelo IPCA
 try:
     ipca_marco = df_cepea[df_cepea["dt_cmdty"] == pd.Timestamp("2025-03-01")]["ipca_acumulado"].values[0]
     df_cepea["cmdty_vl_rs_um"] = df_cepea["Valor"] * (1 + ((ipca_marco - df_cepea["ipca_acumulado"]) / 100))
@@ -112,7 +112,7 @@ except Exception as e:
     logging.critical(f"Erro ao calcular valor corrigido pelo IPCA: {e}")
     exit(1)
 
-# 5. LEITURA DO CSV E UPSERT
+#5. Preparação do arquivo .csv 
 csv_path = './raw/boi_gordo_base.csv'
 
 try:
@@ -127,7 +127,7 @@ except Exception as e:
     logging.error(f"Erro ao ler o CSV de base: {e}")
     exit(1)
 
-# Merge e cálculo da variação percentual
+#Merge e cálculo da variação percentual
 df_merge = pd.merge(
     df_cepea[["dt_cmdty", "cmdty_vl_rs_um"]],
     df_base,
@@ -140,7 +140,7 @@ df_merge["cmdty_var_mes_perc"] = (
     (df_merge["cmdty_vl_rs_um_novo"] - df_merge["cmdty_vl_rs_um_antigo"]) / df_merge["cmdty_vl_rs_um_antigo"]
 ).fillna(0)
 
-# Formatar variação percentual como string legível (ex: "3.21%")
+#Formatar variação percentual como string legível (ex: "3.21%")
 df_merge["cmdty_var_mes_perc"] = (
     (df_merge["cmdty_var_mes_perc"] * 100).round(2).astype(str) + '%'
 )
@@ -156,7 +156,7 @@ except Exception as e:
     logging.error(f"Erro ao salvar o CSV atualizado: {e}")
     exit(1)
 
-# 6. Output PARQUET
+#6. Output PARQUET
 try:
     df_cepea = df_cepea.merge(
         df_atualizado[["dt_cmdty", "cmdty_var_mes_perc"]],
@@ -169,16 +169,15 @@ try:
     df_cepea["cmdty_um"] = "15 Kg/carcaça"
     df_cepea["dt_etl"] = pd.to_datetime(datetime.today().date())
 
-    df_final_parquet = df_cepea[[
+    df_refined = df_cepea[[
         "dt_cmdty", "nome_cmdty", "tipo_cmdty", "cmdty_um",
         "cmdty_vl_rs_um", "cmdty_var_mes_perc", "dt_etl"
     ]]
 
     parquet_path = './refined/boi_gordo_corrigido.parquet'
-    df_final_parquet.to_parquet(parquet_path, index=False)
+    df_refined.to_parquet(parquet_path, index=False)
     logging.info(f"Arquivo Parquet salvo com sucesso em: {parquet_path}")
 except Exception as e:
     logging.error(f"Erro ao salvar o arquivo Parquet: {e}")
     exit(1)
-print (df_final_parquet)
 logging.info("Processo ETL concluído com sucesso.")
