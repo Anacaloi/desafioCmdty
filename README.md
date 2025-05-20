@@ -19,7 +19,13 @@ Este projeto realiza o processo ETL para dados do indicador de preço do Boi Gor
 - Python 3.8 ou superior
 - Bibliotecas Python:
   - pandas;
-  - pyarrow (para salvar em Parquet).
+  - requests;
+  - datetime;
+  - os;
+  - logging;
+  - gdown;
+  - openpyxl (para ler Excel .xlsx);
+  - pyarrow.
 - Conexão com internet para requisição da API do Banco Central
 
 ## Instalação
@@ -29,14 +35,43 @@ Este projeto realiza o processo ETL para dados do indicador de preço do Boi Gor
    git clone https://github.com/Anacaloi/desafioCmdty.git
    cd desafioCmdty
    ```
+2. Instalação das dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
+## Execução do ETL
+Execute o script principal para iniciar o pipeline de ETL:
+   ```bash
+   python etl_commodity.py
+   ```
 
-## Dicionário de Dados
+  - O script realiza as seguintes etapas:
+     
+    - Criação de diretórios raw/ e refined/ caso não existam.
+    - Download de dados de commodity e base histórica.
+    - Obtenção do IPCA via API do Banco Central.
+    - Cálculo do valor real corrigido pela inflação.
+    - Atualização incremental (upsert) do histórico em CSV.
+    - Exportação final em formato Parquet.
 
-Campos após ETL:
-dt_cmdty: data do commodity;
-nome_cmdty: Boi_Gordo;
-tipo_cmdty: Indicador do Boi Gordo CEPEA/B3;
-cmdty_um: 15 Kg/carcaça;
-cmdty_vl_rs_um: valor real do commodity;
-cmdty_var_mes_perc: valor do cálculo realizado de variação percentual;
-dt_etl: data de processamento ETL.
+      
+## Estrutura dos Dados
+
+Arquivo Parquet (refined/boi_gordo_refined.parquet)
+Inclui as colunas padronizadas para consumo em data warehouse:
+
+- dt_cmdty: data do commodity;
+- nome_cmdty: Boi_Gordo;
+- tipo_cmdty: Indicador do Boi Gordo CEPEA/B3;
+- cmdty_um: 15 Kg/carcaça;
+- cmdty_vl_rs_um: valor real do commodity;
+- cmdty_var_mes_perc: valor do cálculo realizado de variação percentual;
+- dt_etl: data de processamento ETL.
+
+| dt\_cmdty  | nome\_cmdty | tipo\_cmdty                     | cmdty\_um     | cmdty\_vl\_rs\_um | cmdty\_var\_mes\_perc | dt\_etl    |
+| ---------- | ----------- | ------------------------------- | ------------- | ----------------- | --------------------- | ---------- |
+| 2024-01-01 | Boi\_Gordo  | Indicador do Boi Gordo CEPEA/B3 | 15 Kg/carcaça | 300.00            | 0.00%                 | 2025-05-20 |
+
+
+## Logs
+Todos os eventos e possíveis erros são registrados em etl_commodity.log, disponível no diretório raiz.
