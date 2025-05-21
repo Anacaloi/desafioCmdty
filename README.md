@@ -37,7 +37,7 @@ Este projeto realiza o processo ETL para dados do indicador de preço do Boi Gor
    ```
 2. Instalação das dependências:
    ```bash
-   pip install -r requirements.txt
+   pip install pandas requests gdown openpyxl pyarrow
    ```
 ## Execução do ETL
 Execute o script principal para iniciar o pipeline de ETL:
