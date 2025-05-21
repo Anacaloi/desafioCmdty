@@ -154,10 +154,8 @@ df_merge["cmdty_var_mes_perc"] = (
     / df_merge["cmdty_vl_rs_um_antigo"]
 ).fillna(0)
 
-# Formatar variação percentual como string legível (ex: "3.21%")
-df_merge["cmdty_var_mes_perc"] = (df_merge["cmdty_var_mes_perc"] * 100).round(2).astype(
-    str
-) + "%"
+# Formatar variação percentual (ex: "3.21")
+df_merge["cmdty_var_mes_perc"] = (df_merge["cmdty_var_mes_perc"] * 100).round(2)
 df_atualizado = df_merge[
     ["dt_cmdty", "cmdty_vl_rs_um_novo", "cmdty_var_mes_perc"]
 ].rename(columns={"cmdty_vl_rs_um_novo": "cmdty_vl_rs_um"})
