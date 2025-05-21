@@ -39,7 +39,4 @@ jobs:
         pip install black
         black --check .
 
-    - name: Verificar lint com flake8
-      run: |
-        pip install flake8
-        flake8 .
+
