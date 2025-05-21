@@ -75,3 +75,17 @@ Inclui as colunas padronizadas para consumo em data warehouse:
 
 ## Logs
 Todos os eventos e possíveis erros são registrados em etl_commodity.log, disponível no diretório raiz.
+
+## Sugestões de Melhoria / Próximos Passos
+Para tornar este projeto ainda mais robusto, escalável e manutenível, as seguintes melhorias podem ser consideradas:
+
+- Modularização do Código: Reestruturar o script principal em funções e módulos menores e mais coesos. Isso facilita a leitura, manutenção e reutilização de partes do código, seguindo o princípio da responsabilidade única.
+
+- Implementação de Testes Unitários: Adicionar testes unitários para as funções críticas (e.g., obter_ipca, funções de tratamento de dados). Isso garante que cada parte do código funcione conforme o esperado e ajuda a prevenir regressões ao adicionar novas funcionalidades ou refatorar o código. Bibliotecas como pytest são ideais para isso.
+
+- Conteinerização (Docker): Criar um Dockerfile para empacotar a aplicação e suas dependências em um contêiner Docker. Isso garante um ambiente de execução consistente em qualquer lugar, simplifica o deploy e a execução do pipeline em diferentes máquinas ou serviços de orquestração.
+
+- Agendamento de Tarefas: Para execução em produção, integrar o pipeline com ferramentas de agendamento de tarefas (ex: Apache Airflow) para automatizar a execução diária ou mensal do ETL.
+
+- Tratamento de Erros Aprimorado e Retries: Implementar estratégias de retry com backoff exponencial para requisições de rede (API do BCB) e verificações mais robustas para dados ausentes ou inválidos, aumentando a resiliência do pipeline.
+
