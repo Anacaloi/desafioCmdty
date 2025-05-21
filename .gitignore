@@ -1,0 +1,10 @@
+# Arquivos de dados
+/raw/
+/refined/
+*.parquet
+*.csv
+*.xlsx
+
+# Arquivos de log e config
+*.log
+*.yml
